@@ -24,10 +24,10 @@ interface Xy {
 
 @Component({
   selector: 'app-ecg-chart',
-  templateUrl: './ecg-chart.component.html',
-  styleUrls: ['./ecg-chart.component.css'],
+  templateUrl: './dozee-ecg-chart.component.html',
+  styleUrls: ['./dozee-ecg-chart.component.css'],
 })
-export class EcgChartComponent implements OnInit {
+export class DozeeEcgChartComponent implements OnInit {
   @Input() accessToken!: string;
   @Input() userId!: string;
 

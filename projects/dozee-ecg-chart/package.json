@@ -1,6 +1,10 @@
 {
   "name": "dozee-ecg-chart",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "description": "A library for drawing ECG charts with real-time data",
+  "author": "Mayank Joshi <mayank@dozee.io>",
+  "main": "dist/dozee-ecg-chart/fesm2022/dozee-ecg-chart.mjs",
+  "keywords": ["ECG", "Angular", "Chart", "Realtime"],
   "peerDependencies": {
     "@angular/common": "^18.2.0",
     "@angular/core": "^18.2.0"
