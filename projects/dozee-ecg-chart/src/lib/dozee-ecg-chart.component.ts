@@ -30,6 +30,8 @@ interface Xy {
 export class DozeeEcgChartComponent implements OnInit {
   @Input() accessToken!: string;
   @Input() userId!: string;
+  @Input() strokeColor: string = '#00ff00';
+  @Input() backgroundColor: string = '#000000';
 
   private eventSource!: EventSource;
   private buffer: Xy[][] = [];
@@ -55,6 +57,7 @@ export class DozeeEcgChartComponent implements OnInit {
     );
 
     const ctx = document.getElementById('ecgChart') as HTMLCanvasElement;
+    ctx.style.backgroundColor = this.backgroundColor;
 
     this.chart = new Chart(ctx, {
       type: 'line',
@@ -64,8 +67,8 @@ export class DozeeEcgChartComponent implements OnInit {
           {
             label: 'ECG Data',
             data: this.ecgData,
-            borderColor: 'rgba(75, 192, 192, 1)',
-            borderWidth: 2,
+            borderColor: this.strokeColor,
+            borderWidth: 1,
             fill: false,
             pointRadius: 0, // Hide points for smooth line
           },
@@ -80,17 +83,26 @@ export class DozeeEcgChartComponent implements OnInit {
             type: 'linear',
             min: 0,
             max: this.maxPoints, // Set fixed X-axis range (8 seconds)
-            display: true, // Hide the x-axis
+            display: false, // Hide the x-axis
+            grid: { display: false },
           },
           y: {
             max: 4000, // Adjust based on ECG value range
             min: 0,
             type: 'linear',
             beginAtZero: true,
-            title: {
-              display: true,
-              text: 'ECG Signal',
-            },
+            grid: { display: false },
+            display: false,
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+        },
+        elements: {
+          line: {
+            tension: 0.4,
           },
         },
       },
@@ -134,7 +146,7 @@ export class DozeeEcgChartComponent implements OnInit {
   }
 
   initializeSse(): void {
-    const sseUrl = `https://sse.dozee.cloud/sse/ecgstream?userId=${this.userId}&accessToken=${this.accessToken}`;
+    const sseUrl = `https://sse.dozee.cloud/sse/ecgstream?userId=${this.userId}&accessToken=${this.accessToken}&ngsw-bypass=true`;
     this.eventSource = new EventSource(sseUrl);
 
     this.eventSource.onmessage = (e: MessageEvent) => {

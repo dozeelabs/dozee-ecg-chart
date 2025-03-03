@@ -4,3 +4,4 @@
 
 export * from './lib/dozee-ecg-chart.service';
 export * from './lib/dozee-ecg-chart.component';
+export * from './lib/dozee-ecg-chart.module';
