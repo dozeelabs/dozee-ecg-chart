@@ -1,4 +1,4 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, Input, Renderer2 } from '@angular/core';
 import {
   Chart,
   CategoryScale,
@@ -40,8 +40,13 @@ export class DozeeEcgChartComponent implements OnInit {
   private duration = 8; // seconds
   private maxPoints = this.frequency * this.duration; // 2048 points
   private ecgData = Array(this.maxPoints).fill(null);
+  private bufferLimit = 64 * 64;
+  private isPageActive = true;
+  private intervalId: any;
+  private inactivityTimeout: any; // Timer to track inactivity
+  private inactiveDelay = 30000;
 
-  constructor() {}
+  constructor(private renderer: Renderer2) {}
 
   ngOnInit(): void {
     // Register necessary chart components
@@ -111,15 +116,62 @@ export class DozeeEcgChartComponent implements OnInit {
     // Initialize SSE connection
     this.initializeSse();
 
-    // Update chart data at regular intervals
-    setInterval(() => {
-      if (this.buffer.length > 0) {
-        const entry = this.buffer.shift() as Xy[];
-        for (const e of entry) {
-          this.addData(e);
-        }
+    this.renderer.listen('document', 'visibilitychange', () => {
+      if (document.hidden) {
+        console.log('Page became inactive, starting 30s timeout...');
+        this.startInactivityTimer();
+      } else {
+        console.log('Page is active again, canceling inactivity timeout');
+        this.cancelInactivityTimer();
+        this.startInterval();
       }
-    }, 16); // Update frequency (256 Hz)
+    });
+
+    // Start interval initially
+    this.startInterval();
+  }
+
+  private startInterval() {
+    if (!this.intervalId) {
+      // Update chart data at regular intervals
+      this.intervalId = setInterval(() => {
+
+        if (this.buffer.length > this.bufferLimit && this.currentIndex === 0) {
+          console.warn(`Buffer overflow: Skipping 4096 old entries`);
+          this.buffer.splice(0, this.buffer.length - 64);
+        }
+
+        if (this.buffer.length > 0) {
+          const entry = this.buffer.shift() as Xy[];
+          for (const e of entry) {
+            this.addData(e);
+          }
+        }
+      }, 16); // Update frequency (256 Hz)
+    }
+  }
+
+  private startInactivityTimer() {
+    this.inactivityTimeout = setTimeout(() => {
+      console.log('Page has been inactive for 30 seconds, stopping updates.');
+      this.isPageActive = false;
+      this.clearInterval();
+    }, this.inactiveDelay);
+  }
+
+  private cancelInactivityTimer() {
+    if (this.inactivityTimeout) {
+      clearTimeout(this.inactivityTimeout);
+      this.inactivityTimeout = null;
+    }
+    this.isPageActive = true;
+  }
+
+  private clearInterval() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
   }
 
   private currentIndex = 0;
@@ -151,7 +203,7 @@ export class DozeeEcgChartComponent implements OnInit {
 
     this.eventSource.onmessage = (e: MessageEvent) => {
       const data = JSON.parse(e.data) as EcgSignalData;
-      if (data.Key === 'SIGNAL') {
+      if (data.Key === 'SIGNAL' && this.isPageActive) {
         let entry: Xy[] = [];
         data.Values.forEach((s: number, i: number) => {
           entry.push({
