@@ -30,6 +30,7 @@ interface Xy {
 export class DozeeEcgChartComponent implements OnInit {
   @Input() accessToken!: string;
   @Input() userId!: string;
+  @Input() stage!: string;
   @Input() strokeColor: string = '#00ff00';
   @Input() backgroundColor: string = '#000000';
 
@@ -198,7 +199,7 @@ export class DozeeEcgChartComponent implements OnInit {
   }
 
   initializeSse(): void {
-    const sseUrl = `https://sse.dozee.cloud/sse/ecgstream?userId=${this.userId}&accessToken=${this.accessToken}&ngsw-bypass=true`;
+    const sseUrl = `https://sse${this.stage ? `-${this.stage}`: ''}.dozee.cloud/sse/ecgstream?userId=${this.userId}&accessToken=${this.accessToken}&ngsw-bypass=true`;
     this.eventSource = new EventSource(sseUrl);
 
     this.eventSource.onmessage = (e: MessageEvent) => {
