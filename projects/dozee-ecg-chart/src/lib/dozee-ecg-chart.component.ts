@@ -138,7 +138,9 @@ export class DozeeEcgChartComponent implements OnInit {
       this.intervalId = setInterval(() => {
 
         if (this.buffer.length > this.bufferLimit && this.currentIndex === 0) {
-          console.warn(`Buffer overflow: Skipping 4096 old entries`);
+          if (this.stage === 'sit') {
+            console.warn(`Buffer overflow: Skipping ${this.buffer.length - 64} old entries`);
+          }
           this.buffer.splice(0, this.buffer.length - 64);
         }
 
@@ -191,6 +193,9 @@ export class DozeeEcgChartComponent implements OnInit {
 
       // Advance the index, and wrap around if it exceeds maxPoints
       this.currentIndex = (this.currentIndex + 1) % this.maxPoints;
+      if (this.stage === 'sit') {
+      console.log('Current index:', this.currentIndex);
+      }
 
       // Update the chart data
       this.chart.data.datasets[0].data = this.ecgData;
@@ -214,6 +219,9 @@ export class DozeeEcgChartComponent implements OnInit {
 
           if (entry.length === 4) {
             this.buffer.push(entry);
+            if (this.stage === 'sit') {
+            console.log('Buffer length:', this.buffer.length);
+            }
             entry = [];
           }
         });
