@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Renderer2 } from '@angular/core';
+import { Component, OnInit, Input, Renderer2, NgZone } from '@angular/core';
 import {
   Chart,
   CategoryScale,
@@ -34,7 +34,7 @@ export class DozeeEcgChartComponent implements OnInit {
   @Input() strokeColor: string = '#00ff00';
   @Input() backgroundColor: string = '#000000';
 
-  private eventSource!: EventSource;
+  private eventSource: EventSource | null = null;
   private buffer: Xy[][] = [];
   private chart!: Chart;
   private frequency = 256; // Hz
@@ -45,9 +45,10 @@ export class DozeeEcgChartComponent implements OnInit {
   private isPageActive = true;
   private intervalId: any;
   private inactivityTimeout: any; // Timer to track inactivity
-  private inactiveDelay = 30000;
+  private readonly INACTIVE_DELAY = 30000;
+  private readonly RETRY_DELAY = 6000;
 
-  constructor(private renderer: Renderer2) {}
+  constructor(private renderer: Renderer2, private ngZone: NgZone) {}
 
   ngOnInit(): void {
     // Register necessary chart components
@@ -159,7 +160,7 @@ export class DozeeEcgChartComponent implements OnInit {
       console.log('Page has been inactive for 30 seconds, stopping updates.');
       this.isPageActive = false;
       this.clearInterval();
-    }, this.inactiveDelay);
+    }, this.INACTIVE_DELAY);
   }
 
   private cancelInactivityTimer() {
@@ -205,37 +206,53 @@ export class DozeeEcgChartComponent implements OnInit {
 
   initializeSse(): void {
     const sseUrl = `https://sse${this.stage ? `-${this.stage}`: ''}.dozee.cloud/sse/ecgstream?userId=${this.userId}&accessToken=${this.accessToken}&ngsw-bypass=true`;
-    this.eventSource = new EventSource(sseUrl);
 
-    this.eventSource.onmessage = (e: MessageEvent) => {
-      const data = JSON.parse(e.data) as EcgSignalData;
-      if (data.Key === 'SIGNAL' && this.isPageActive) {
-        let entry: Xy[] = [];
-        data.Values.forEach((s: number, i: number) => {
-          entry.push({
-            Timestamp: data.Timestamp + i * (1000 / this.frequency), // Adjust timestamp for frequency
-            Value: s,
+    this.ngZone.runOutsideAngular(() => {
+      this.eventSource = new EventSource(sseUrl);
+      this.eventSource.onmessage = (e: MessageEvent) => {
+        const data = JSON.parse(e.data) as EcgSignalData;
+        if (data.Key === 'SIGNAL' && this.isPageActive) {
+          this.ngZone.run(() => {
+            // Angular will detect this change and update bindings
+            let entry: Xy[] = [];
+            data.Values.forEach((s: number, i: number) => {
+              entry.push({
+                Timestamp: data.Timestamp + i * (1000 / this.frequency), // Adjust timestamp for frequency
+                Value: s,
+              });
+
+              if (entry.length === 4) {
+                this.buffer.push(entry);
+                if (this.stage === 'sit') {
+                  console.log('Buffer length:', this.buffer.length);
+                }
+                entry = [];
+              }
+            });
           });
+        }
+      };
 
-          if (entry.length === 4) {
-            this.buffer.push(entry);
-            if (this.stage === 'sit') {
-            console.log('Buffer length:', this.buffer.length);
-            }
-            entry = [];
-          }
-        });
-      }
-    };
+      this.eventSource.onerror = (error) => {
+        console.error('SSE error, will retry in 6s', error);
+        this.closeConnection();
 
-    this.eventSource.onerror = (error) => {
-      console.error('SSE error:', error);
-    };
+        // schedule a reconnect
+        setTimeout(() => {
+          this.initializeSse();
+        }, this.RETRY_DELAY);
+      };
+    });
   }
 
   ngOnDestroy(): void {
+    this.closeConnection();
+  }
+
+  private closeConnection(): void {
     if (this.eventSource) {
       this.eventSource.close();
+      this.eventSource = null;
     }
   }
 }
