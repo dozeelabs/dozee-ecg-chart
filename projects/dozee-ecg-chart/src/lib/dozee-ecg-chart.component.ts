@@ -205,7 +205,7 @@ export class DozeeEcgChartComponent implements OnInit {
   }
 
   initializeSse(): void {
-    const sseUrl = `https://sse${this.stage ? `-${this.stage}`: ''}.dozee.cloud/sse/ecgstream?userId=${this.userId}&accessToken=${this.accessToken}&ngsw-bypass=true`;
+    const sseUrl = `https://ecgsse${this.stage ? `-${this.stage}`: ''}.dozee.cloud/sse/ecgstream?userId=${this.userId}&accessToken=${this.accessToken}&ngsw-bypass=true`;
 
     this.ngZone.runOutsideAngular(() => {
       this.eventSource = new EventSource(sseUrl);
